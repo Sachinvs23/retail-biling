@@ -1,0 +1,291 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  MANAGER
+  CASHIER
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum StockMovementType {
+  OPENING
+  PURCHASE
+  SALE
+  CUSTOMER_RETURN
+  SUPPLIER_RETURN
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+}
+
+enum PurchaseStatus {
+  DRAFT
+  RECEIVED
+  CANCELLED
+}
+
+enum PurchasePaymentMethod {
+  CASH
+  UPI
+  CARD
+  BANK_TRANSFER
+  CHEQUE
+  OTHER
+}
+
+enum PurchasePriceMode {
+  GST_EXCLUSIVE
+  GST_INCLUSIVE
+}
+
+enum PurchaseTaxType {
+  CGST_SGST
+  IGST
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  name         String?
+  passwordHash String
+  memberships  Membership[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([createdAt])
+}
+
+model Tenant {
+  id               String            @id @default(cuid())
+  name             String
+  slug             String            @unique
+  status           TenantStatus      @default(ACTIVE)
+  memberships      Membership[]
+  products         Product[]
+  suppliers        Supplier[]
+  stores           Store[]
+  purchases        Purchase[]
+  purchaseItems    PurchaseItem[]
+  purchasePayments PurchasePayment[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+}
+
+model Membership {
+  id        String         @id @default(cuid())
+  userId    String
+  tenantId  String
+  role      MembershipRole @default(CASHIER)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@unique([userId, tenantId])
+  @@index([tenantId, role])
+}
+
+model Store {
+  id             String           @id @default(cuid())
+  tenantId       String
+  name           String
+  code           String?
+  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inventories    StoreInventory[]
+  stockMovements StockMovement[]
+  purchases      Purchase[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@index([tenantId, name])
+}
+
+model Product {
+  id            String  @id @default(cuid())
+  tenantId      String
+  name          String
+  sku           String?
+  barcode       String?
+  description   String?
+  unit          String  @default("piece")
+  purchasePrice Decimal @default(0) @db.Decimal(12, 2)
+  sellingPrice  Decimal @db.Decimal(12, 2)
+  hsnCode       String?
+  gstRate       Decimal @default(0) @db.Decimal(5, 2)
+  isActive      Boolean @default(true)
+
+  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inventories    StoreInventory[]
+  stockMovements StockMovement[]
+  purchaseItems  PurchaseItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, sku])
+  @@unique([tenantId, barcode])
+  @@index([tenantId, name])
+}
+
+model StoreInventory {
+  id           String   @id @default(cuid())
+  tenantId     String
+  storeId      String
+  productId    String
+  quantity     Decimal  @default(0) @db.Decimal(12, 3)
+  reorderLevel Decimal? @db.Decimal(12, 3)
+
+  store   Store   @relation(fields: [tenantId, storeId], references: [tenantId, id], onDelete: Cascade)
+  product Product @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([storeId, productId])
+  @@index([tenantId, productId])
+}
+
+model StockMovement {
+  id          String            @id @default(cuid())
+  tenantId    String
+  storeId     String
+  productId   String
+  type        StockMovementType
+  quantity    Decimal           @db.Decimal(12, 3)
+  unitCost    Decimal?          @db.Decimal(12, 2)
+  referenceId String?
+  note        String?
+
+  store   Store   @relation(fields: [tenantId, storeId], references: [tenantId, id], onDelete: Restrict)
+  product Product @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, storeId, createdAt])
+  @@index([tenantId, productId, createdAt])
+  @@index([referenceId])
+}
+
+model Supplier {
+  id            String     @id @default(cuid())
+  tenantId      String
+  name          String
+  code          String?
+  contactPerson String?
+  phone         String?
+  email         String?
+  address       String?
+  gstin         String?
+  isActive      Boolean    @default(true)
+  purchases     Purchase[]
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, id])
+  @@index([tenantId, name])
+  @@index([tenantId, phone])
+  @@index([tenantId, gstin])
+}
+
+model Purchase {
+  id            String         @id @default(cuid())
+  tenantId      String
+  storeId       String
+  supplierId    String
+  invoiceNumber String
+  invoiceDate   DateTime
+  status        PurchaseStatus @default(DRAFT)
+
+  subtotal       Decimal @db.Decimal(12, 2)
+  discountAmount Decimal @default(0) @db.Decimal(12, 2)
+  taxAmount      Decimal @default(0) @db.Decimal(12, 2)
+  totalAmount    Decimal @db.Decimal(12, 2)
+
+  notes       String?
+  receivedAt  DateTime?
+  cancelledAt DateTime?
+
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  store     Store             @relation(fields: [tenantId, storeId], references: [tenantId, id], onDelete: Restrict)
+  supplier  Supplier          @relation(fields: [tenantId, supplierId], references: [tenantId, id], onDelete: Restrict)
+  items     PurchaseItem[]
+  payments  PurchasePayment[]
+  priceMode PurchasePriceMode @default(GST_EXCLUSIVE)
+  taxType   PurchaseTaxType
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, supplierId, invoiceNumber])
+  @@index([tenantId, storeId, invoiceDate])
+  @@index([tenantId, supplierId, invoiceDate])
+  @@index([tenantId, status])
+}
+
+model PurchaseItem {
+  id         String @id @default(cuid())
+  tenantId   String
+  purchaseId String
+  productId  String
+
+  productName String
+  sku         String?
+  hsnCode     String?
+
+  quantity       Decimal @db.Decimal(12, 3)
+  unitCost       Decimal @db.Decimal(12, 2)
+  gstRate        Decimal @db.Decimal(5, 2)
+  discountAmount Decimal @default(0) @db.Decimal(12, 2)
+  taxAmount      Decimal @db.Decimal(12, 2)
+  totalAmount    Decimal @db.Decimal(12, 2)
+  taxableAmount  Decimal @db.Decimal(12, 2)
+  cgstAmount     Decimal @default(0) @db.Decimal(12, 2)
+  sgstAmount     Decimal @default(0) @db.Decimal(12, 2)
+  igstAmount     Decimal @default(0) @db.Decimal(12, 2)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  purchase Purchase @relation(fields: [tenantId, purchaseId], references: [tenantId, id], onDelete: Restrict)
+  product  Product  @relation(fields: [tenantId, productId], references: [tenantId, id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, purchaseId])
+  @@index([tenantId, productId])
+}
+
+model PurchasePayment {
+  id         String                @id @default(cuid())
+  tenantId   String
+  purchaseId String
+  amount     Decimal               @db.Decimal(12, 2)
+  method     PurchasePaymentMethod
+  reference  String?
+  notes      String?
+  paidAt     DateTime              @default(now())
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  purchase Purchase @relation(fields: [tenantId, purchaseId], references: [tenantId, id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, purchaseId, paidAt])
+}
