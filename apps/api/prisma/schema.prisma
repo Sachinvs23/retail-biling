@@ -60,6 +60,7 @@ model User {
   name         String?
   passwordHash String
   memberships  Membership[]
+  refreshTokens RefreshToken[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
@@ -288,4 +289,23 @@ model PurchasePayment {
   updatedAt DateTime @updatedAt
 
   @@index([tenantId, purchaseId, paidAt])
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  familyId  String
+  tokenHash String    @unique
+
+  expiresAt DateTime
+  usedAt    DateTime?
+  revokedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([familyId])
+  @@index([expiresAt])
 }

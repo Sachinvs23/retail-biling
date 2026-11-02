@@ -65,6 +65,7 @@ export const ModelName = {
   Purchase: 'Purchase',
   PurchaseItem: 'PurchaseItem',
   PurchasePayment: 'PurchasePayment',
+  RefreshToken: 'RefreshToken',
 } as const;
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName];
@@ -263,6 +264,20 @@ export const PurchasePaymentScalarFieldEnum = {
 
 export type PurchasePaymentScalarFieldEnum =
   (typeof PurchasePaymentScalarFieldEnum)[keyof typeof PurchasePaymentScalarFieldEnum];
+
+export const RefreshTokenScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  familyId: 'familyId',
+  tokenHash: 'tokenHash',
+  expiresAt: 'expiresAt',
+  usedAt: 'usedAt',
+  revokedAt: 'revokedAt',
+  createdAt: 'createdAt',
+} as const;
+
+export type RefreshTokenScalarFieldEnum =
+  (typeof RefreshTokenScalarFieldEnum)[keyof typeof RefreshTokenScalarFieldEnum];
 
 export const SortOrder = {
   asc: 'asc',

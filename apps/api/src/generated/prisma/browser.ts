@@ -71,3 +71,8 @@ export type PurchaseItem = Prisma.PurchaseItemModel;
  *
  */
 export type PurchasePayment = Prisma.PurchasePaymentModel;
+/**
+ * Model RefreshToken
+ *
+ */
+export type RefreshToken = Prisma.RefreshTokenModel;
