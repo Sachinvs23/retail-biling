@@ -27,6 +27,9 @@ describe('business error handling', () => {
       'duplicateBusiness',
     );
     expect(
+      getBusinessErrorKey(new ApiError(409, 'Conflict'), 'store-create'),
+    ).toBe('duplicateStore');
+    expect(
       getBusinessErrorKey(new ApiError(400, 'Bad request'), 'create'),
     ).toBe('validation');
     expect(

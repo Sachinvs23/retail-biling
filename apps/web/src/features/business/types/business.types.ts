@@ -50,6 +50,13 @@ export interface CreateBusinessResponse {
   store: Store | null;
 }
 
+export interface CreateStoreRequest {
+  storeName: string;
+  storeCode?: string;
+}
+
+export type CreateStoreResponse = Store;
+
 export type BusinessSelectionOutcome =
   | { status: 'ready'; context: BusinessContextData }
   | { status: 'store-selection-required'; context: BusinessContextData }

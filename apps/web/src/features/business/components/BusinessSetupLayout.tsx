@@ -6,12 +6,14 @@ import './BusinessSetup.css';
 interface BusinessSetupLayoutProps {
   titleKey: string;
   subtitleKey: string;
+  className?: string;
   children: ReactNode;
 }
 
 export function BusinessSetupLayout({
   titleKey,
   subtitleKey,
+  className,
   children,
 }: BusinessSetupLayoutProps) {
   const intl = useIntl();
@@ -20,7 +22,7 @@ export function BusinessSetupLayout({
   return (
     <main className="business-setup-page">
       <section
-        className="business-setup-card"
+        className={['business-setup-card', className].filter(Boolean).join(' ')}
         aria-labelledby="business-setup-title"
       >
         <header className="business-setup-header">

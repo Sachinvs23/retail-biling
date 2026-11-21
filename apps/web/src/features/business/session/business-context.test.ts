@@ -482,4 +482,111 @@ describe('business context', () => {
       client.getQueryData(businessKeys.context('business-1')),
     ).toBeUndefined();
   });
+
+  it('adds a created store, activates it, and preserves business-scoped caches', () => {
+    const client = new QueryClient();
+    const service = createBusinessContext(client);
+    const context = makeContext('business-1', ['store-1', 'store-2']);
+    const newStore = makeStore('store-3');
+
+    apiContext.setToken('access-token');
+    service.selectBusiness(context, 'store-1');
+
+    client.setQueryData(businessKeys.storeScope('business-1', 'store-1'), [
+      'previous-store',
+    ]);
+    client.setQueryData(businessKeys.products('business-1'), ['business']);
+    client.setQueryData(authKeys.currentUser, { id: 'user-1' });
+
+    const generation = apiContext.getSessionGeneration();
+    const result = service.applyCreatedStore(
+      newStore,
+      'business-1',
+      generation,
+    );
+
+    expect(result.stores.map((store) => store.id)).toEqual([
+      'store-1',
+      'store-2',
+      'store-3',
+    ]);
+    expect(client.getQueryData(businessKeys.context('business-1'))).toEqual(
+      result,
+    );
+    expect(client.getQueryData(businessKeys.stores('business-1'))).toEqual(
+      result.stores,
+    );
+    expect(client.getQueryData(businessKeys.products('business-1'))).toEqual([
+      'business',
+    ]);
+    expect(client.getQueryData(authKeys.currentUser)).toEqual({ id: 'user-1' });
+    expect(
+      client.getQueryData(businessKeys.storeScope('business-1', 'store-1')),
+    ).toBeUndefined();
+    expect(apiContext.getBusinessId()).toBe('business-1');
+    expect(apiContext.getStoreId()).toBe('store-3');
+    expect(apiContext.getToken()).toBe('access-token');
+  });
+
+  it('does not duplicate a store that is already cached', () => {
+    const client = new QueryClient();
+    const service = createBusinessContext(client);
+    const context = makeContext('business-1', ['store-1']);
+    const newStore = makeStore('store-2');
+
+    service.selectBusiness(context, 'store-1');
+    const generation = apiContext.getSessionGeneration();
+
+    const first = service.applyCreatedStore(newStore, 'business-1', generation);
+    const second = service.applyCreatedStore(
+      newStore,
+      'business-1',
+      generation,
+    );
+
+    expect(first.stores).toHaveLength(2);
+    expect(second.stores).toHaveLength(2);
+    expect(second.stores.map((store) => store.id)).toEqual([
+      'store-1',
+      'store-2',
+    ]);
+  });
+
+  it('does not apply a created store after the business changes', () => {
+    const client = new QueryClient();
+    const service = createBusinessContext(client);
+    const context = makeContext('business-1', ['store-1']);
+
+    service.selectBusiness(context, 'store-1');
+    const generation = apiContext.getSessionGeneration();
+    apiContext.setBusinessId('business-2');
+
+    expect(() =>
+      service.applyCreatedStore(makeStore('store-2'), 'business-1', generation),
+    ).toThrow('Session or business changed');
+    expect(apiContext.getStoreId()).toBe('store-1');
+    expect(client.getQueryData(businessKeys.context('business-1'))).toEqual(
+      context,
+    );
+  });
+
+  it('does not apply a created store after the session generation changes', () => {
+    const client = new QueryClient();
+    const service = createBusinessContext(client);
+    const context = makeContext('business-1', ['store-1']);
+
+    service.selectBusiness(context, 'store-1');
+    const generation = apiContext.getSessionGeneration();
+
+    apiContext.clearState();
+    apiContext.setBusinessId('business-1');
+    apiContext.setStoreId('store-1');
+
+    expect(() =>
+      service.applyCreatedStore(makeStore('store-2'), 'business-1', generation),
+    ).toThrow('Session or business changed');
+    expect(client.getQueryData(businessKeys.context('business-1'))).toEqual(
+      context,
+    );
+  });
 });

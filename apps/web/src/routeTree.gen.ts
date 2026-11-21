@@ -15,6 +15,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as OnboardingOnboardingRouteImport } from './routes/_onboarding/onboarding'
+import { Route as AuthenticatedStoresNewRouteImport } from './routes/_authenticated/stores/new'
 import { Route as OnboardingBusinessesSelectRouteImport } from './routes/_onboarding/businesses/select'
 import { Route as OnboardingStoresSelectRouteImport } from './routes/_onboarding/stores/select'
 import { Route as OnboardingStoresSetupRouteImport } from './routes/_onboarding/stores/setup'
@@ -47,6 +48,11 @@ const OnboardingOnboardingRoute = OnboardingOnboardingRouteImport.update({
   path: '/onboarding',
   getParentRoute: () => OnboardingRouteRoute,
 } as any)
+const AuthenticatedStoresNewRoute = AuthenticatedStoresNewRouteImport.update({
+  id: '/stores/new',
+  path: '/stores/new',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const OnboardingBusinessesSelectRoute =
   OnboardingBusinessesSelectRouteImport.update({
     id: '/businesses/select',
@@ -69,6 +75,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/onboarding': typeof OnboardingOnboardingRoute
+  '/stores/new': typeof AuthenticatedStoresNewRoute
   '/businesses/select': typeof OnboardingBusinessesSelectRoute
   '/stores/select': typeof OnboardingStoresSelectRoute
   '/stores/setup': typeof OnboardingStoresSetupRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/onboarding': typeof OnboardingOnboardingRoute
+  '/stores/new': typeof AuthenticatedStoresNewRoute
   '/businesses/select': typeof OnboardingBusinessesSelectRoute
   '/stores/select': typeof OnboardingStoresSelectRoute
   '/stores/setup': typeof OnboardingStoresSetupRoute
@@ -90,6 +98,7 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/_onboarding/onboarding': typeof OnboardingOnboardingRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/stores/new': typeof AuthenticatedStoresNewRoute
   '/_onboarding/businesses/select': typeof OnboardingBusinessesSelectRoute
   '/_onboarding/stores/select': typeof OnboardingStoresSelectRoute
   '/_onboarding/stores/setup': typeof OnboardingStoresSetupRoute
@@ -101,6 +110,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/onboarding'
+    | '/stores/new'
     | '/businesses/select'
     | '/stores/select'
     | '/stores/setup'
@@ -110,6 +120,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/onboarding'
+    | '/stores/new'
     | '/businesses/select'
     | '/stores/select'
     | '/stores/setup'
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/_onboarding/onboarding'
     | '/_authenticated/'
+    | '/_authenticated/stores/new'
     | '/_onboarding/businesses/select'
     | '/_onboarding/stores/select'
     | '/_onboarding/stores/setup'
@@ -177,6 +189,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingOnboardingRouteImport
       parentRoute: typeof OnboardingRouteRoute
     }
+    '/_authenticated/stores/new': {
+      id: '/_authenticated/stores/new'
+      path: '/stores/new'
+      fullPath: '/stores/new'
+      preLoaderRoute: typeof AuthenticatedStoresNewRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_onboarding/businesses/select': {
       id: '/_onboarding/businesses/select'
       path: '/businesses/select'
@@ -203,10 +222,12 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedStoresNewRoute: typeof AuthenticatedStoresNewRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedStoresNewRoute: AuthenticatedStoresNewRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
