@@ -1,0 +1,84 @@
+name: API CI
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api-ci:
+    name: API checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: apps/api
+
+    env:
+      DATABASE_URL: postgresql://retail_billing_test:retail_billing_test@127.0.0.1:5432/retail_billing_test?schema=public
+      JWT_SECRET: ci-test-secret-not-for-production
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: retail_billing_test
+          POSTGRES_PASSWORD: retail_billing_test
+          POSTGRES_DB: retail_billing_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U retail_billing_test -d retail_billing_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+
+      - name: Install API dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Create integration test environment
+        run: |
+          cat > .env.test <<EOF
+          DATABASE_URL=${DATABASE_URL}
+          JWT_SECRET=${JWT_SECRET}
+          EOF
+
+      - name: Apply Prisma migrations
+        run: npx prisma migrate deploy --config prisma7.config.ts
+
+      - name: Integration tests
+        run: npm run test:integration
