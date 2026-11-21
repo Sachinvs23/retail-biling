@@ -43,6 +43,14 @@ export function BusinessSetupAlert({
   );
 }
 
+export function BusinessSetupSuccess({ message }: { message: string }) {
+  return (
+    <div className="business-setup-success" role="status">
+      <span>{message}</span>
+    </div>
+  );
+}
+
 interface BusinessSetupEmptyProps {
   titleKey: string;
   messageKey: string;

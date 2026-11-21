@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useIntl } from 'react-intl';
 
 import { useActiveBusinessContext } from '../../features/business/hooks/useActiveBusinessContext';
+import { businessContext } from '../../features/business/session/business-context';
 import { ADD_BUSINESS_INTENT } from '../../features/business/utils/business-routing';
+import { canCreateStore } from '../../features/business/utils/store-permissions';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -31,6 +34,7 @@ const navigation = [
     items: [{ label: 'navigation.reports', icon: '▥', active: false }],
   },
 ];
+
 export default function Sidebar({
   collapsed,
   mobileOpen,
@@ -39,14 +43,49 @@ export default function Sidebar({
 }: SidebarProps) {
   const intl = useIntl();
   const { context, storeId } = useActiveBusinessContext();
+  const [storeSelection, setStoreSelection] = useState({
+    activeStoreId: storeId,
+    seenStoreId: storeId,
+  });
+  const [storeSwitchError, setStoreSwitchError] = useState<string | null>(null);
+
+  if (storeId !== storeSelection.seenStoreId) {
+    setStoreSelection({ activeStoreId: storeId, seenStoreId: storeId });
+  }
+
   const t = (id: string, values?: Record<string, string | number>) =>
     intl.formatMessage({ id }, values);
 
+  const stores = context?.stores ?? [];
+  const selectedStoreId = storeSelection.activeStoreId ?? storeId;
   const businessName = context?.business.name ?? t('store.name');
   const storeName =
-    context?.stores.find((store) => store.id === storeId)?.name ??
+    stores.find((store) => store.id === selectedStoreId)?.name ??
     t('store.branch');
-  const workspaceLabel = `${t('sidebar.activeBusiness')}: ${businessName} · ${t('sidebar.activeStore')}: ${storeName}`;
+  const workspaceLabel = t('sidebar.workspaceSummary', {
+    business: businessName,
+    store: storeName,
+  });
+  const canAddStore = canCreateStore(context?.membership.role);
+
+  function handleStoreSwitch(nextStoreId: string) {
+    if (nextStoreId === selectedStoreId) {
+      return;
+    }
+
+    setStoreSwitchError(null);
+
+    try {
+      businessContext.selectStore(nextStoreId);
+      setStoreSelection({
+        activeStoreId: nextStoreId,
+        seenStoreId: nextStoreId,
+      });
+      onNavigate();
+    } catch {
+      setStoreSwitchError(t('sidebar.storeSwitchFailed'));
+    }
+  }
 
   return (
     <aside
@@ -95,6 +134,65 @@ export default function Sidebar({
               </div>
               <span className="business-chevron">⌄</span>
             </>
+          )}
+        </div>
+
+        <div
+          className="store-switcher"
+          role="group"
+          aria-label={t('sidebar.storeSwitcher')}
+        >
+          {!collapsed && (
+            <span className="store-switcher-label">{t('sidebar.stores')}</span>
+          )}
+
+          <div className="store-switcher-list">
+            {stores.map((store) => {
+              const isActive = store.id === selectedStoreId;
+              const switchLabel = t('sidebar.switchToStore', {
+                name: store.name,
+              });
+
+              return (
+                <button
+                  className={[
+                    'store-switcher-item',
+                    isActive ? 'store-switcher-item--active' : '',
+                  ].join(' ')}
+                  type="button"
+                  key={store.id}
+                  data-store-id={store.id}
+                  aria-current={isActive ? 'true' : undefined}
+                  aria-label={switchLabel}
+                  title={switchLabel}
+                  onClick={() => handleStoreSwitch(store.id)}
+                >
+                  <span className="store-switcher-dot" aria-hidden="true" />
+                  {!collapsed && (
+                    <span className="store-switcher-name">{store.name}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {storeSwitchError && (
+            <div className="business-switcher-error" role="alert">
+              {storeSwitchError}
+            </div>
+          )}
+
+          {canAddStore && (
+            <Link
+              to="/stores/new"
+              onClick={onNavigate}
+              className="business-switcher-add store-switcher-add"
+              title={t('sidebar.addStore')}
+              aria-label={t('sidebar.addStore')}
+            >
+              <span aria-hidden="true">＋</span>
+              {!collapsed && <span>{t('sidebar.addStore')}</span>}
+            </Link>
           )}
         </div>
 

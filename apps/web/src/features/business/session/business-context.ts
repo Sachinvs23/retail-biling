@@ -11,6 +11,7 @@ import type {
   BusinessDiscoveryOutcome,
   BusinessSelectionOutcome,
   CreateBusinessResponse,
+  CreateStoreResponse,
 } from '../types/business.types';
 import { isBusinessContextError } from '../utils/business-error';
 import { normalizeBusinessResponse } from '../utils/business-normalizer';
@@ -26,6 +27,11 @@ export interface BusinessContextService {
     storeId?: string,
   ): BusinessSelectionOutcome;
   selectStore(storeId: string): void;
+  applyCreatedStore(
+    response: CreateStoreResponse,
+    businessId: string,
+    generation: number,
+  ): BusinessContextData;
   applyResponse(
     response: BusinessContextResponse | CreateBusinessResponse,
   ): BusinessContextData;
@@ -249,6 +255,38 @@ export function createBusinessContext(
     apiContext.setStoreId(storeId);
   }
 
+  function applyCreatedStore(
+    response: CreateStoreResponse,
+    businessId: string,
+    generation: number,
+  ): BusinessContextData {
+    if (!isCurrent(generation) || apiContext.getBusinessId() !== businessId) {
+      throw new Error('Session or business changed before the store was added');
+    }
+
+    const context = client.getQueryData<BusinessContextData>(
+      businessKeys.context(businessId),
+    );
+
+    if (!context) {
+      throw new Error('Business context is not available');
+    }
+
+    const stores = context.stores.some((store) => store.id === response.id)
+      ? context.stores.map((store) =>
+          store.id === response.id ? { ...response } : store,
+        )
+      : [...context.stores, { ...response }];
+    const nextContext = { ...context, stores };
+
+    client.setQueryData(businessKeys.context(businessId), nextContext);
+    client.setQueryData(businessKeys.stores(businessId), stores);
+
+    selectStore(response.id);
+
+    return nextContext;
+  }
+
   function getActiveContext(): BusinessContextData | undefined {
     const businessId = apiContext.getBusinessId();
 
@@ -267,6 +305,7 @@ export function createBusinessContext(
     refreshBusinessList,
     selectBusiness,
     selectStore,
+    applyCreatedStore,
     applyResponse,
     clear,
   };

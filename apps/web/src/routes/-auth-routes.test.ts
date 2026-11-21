@@ -5,13 +5,19 @@ import type {
   BusinessDiscoveryOutcome,
 } from '../features/business/types/business.types';
 
-const { restoreMock, restoreBusinessMock, getBusinessIdMock, getStoreIdMock } =
-  vi.hoisted(() => ({
-    restoreMock: vi.fn(),
-    restoreBusinessMock: vi.fn(),
-    getBusinessIdMock: vi.fn(),
-    getStoreIdMock: vi.fn(),
-  }));
+const {
+  restoreMock,
+  restoreBusinessMock,
+  getBusinessIdMock,
+  getStoreIdMock,
+  getActiveContextMock,
+} = vi.hoisted(() => ({
+  restoreMock: vi.fn(),
+  restoreBusinessMock: vi.fn(),
+  getBusinessIdMock: vi.fn(),
+  getStoreIdMock: vi.fn(),
+  getActiveContextMock: vi.fn(),
+}));
 
 vi.mock('../features/auth/session/auth-session', () => ({
   authSession: {
@@ -24,10 +30,12 @@ vi.mock('../features/business/session/business-context', () => ({
     restore: restoreBusinessMock,
     getBusinessId: getBusinessIdMock,
     getStoreId: getStoreIdMock,
+    getActiveContext: getActiveContextMock,
   },
 }));
 
 import { Route as AuthenticatedRoute } from './_authenticated/route';
+import { Route as StoreNewRoute } from './_authenticated/stores/new';
 
 const context: BusinessContextData = {
   business: {
@@ -174,5 +182,54 @@ describe('dashboard route guards', () => {
     };
 
     expect(error.options.to).toBe('/login');
+  });
+});
+
+describe('store creation route guards', () => {
+  function callStoreCreationBeforeLoad() {
+    const beforeLoad = StoreNewRoute.options.beforeLoad!;
+
+    return beforeLoad({} as never);
+  }
+
+  function captureStoreCreationRedirect() {
+    try {
+      callStoreCreationBeforeLoad();
+      return null;
+    } catch (error) {
+      return error as { options: { to: string } };
+    }
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getActiveContextMock.mockReturnValue(context);
+  });
+
+  it('allows owners and admins', () => {
+    getActiveContextMock.mockReturnValue({
+      ...context,
+      membership: { role: 'ADMIN' },
+    });
+
+    expect(callStoreCreationBeforeLoad()).toBeUndefined();
+  });
+
+  it('redirects managers, cashiers, and stale contexts to the dashboard', () => {
+    for (const role of ['MANAGER', 'CASHIER'] as const) {
+      getActiveContextMock.mockReturnValue({
+        ...context,
+        membership: { role },
+      });
+
+      const error = captureStoreCreationRedirect();
+
+      expect(error?.options.to).toBe('/');
+    }
+
+    getActiveContextMock.mockReturnValue(undefined);
+    const error = captureStoreCreationRedirect();
+
+    expect(error?.options.to).toBe('/');
   });
 });

@@ -94,6 +94,15 @@
   color: var(--color-danger);
 }
 
+.business-setup-success {
+  padding: var(--space-4);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-size: 12px;
+}
+
 .business-setup-empty-title {
   display: block;
   margin-bottom: var(--space-2);
@@ -198,5 +207,107 @@
     border: 0;
     border-radius: 0;
     padding: var(--space-8) var(--space-4);
+  }
+}
+
+.business-setup-card--store {
+  position: relative;
+  overflow: hidden;
+  padding-left: 88px;
+}
+
+.business-setup-card--store::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 44px;
+  border-right: 1px solid var(--color-border);
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0 11px,
+      var(--color-border) 11px 12px
+    ),
+    var(--color-accent-soft);
+  background-position: center top;
+  background-repeat: repeat-y;
+  content: '';
+}
+
+.business-setup-card--store::after {
+  position: absolute;
+  top: var(--space-10);
+  left: 18px;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--color-accent);
+  box-shadow: 0 0 0 4px var(--color-surface);
+  content: '';
+}
+
+.business-setup-card--store .business-setup-header {
+  padding-bottom: var(--space-5);
+  border-bottom: 1px dashed var(--color-border);
+}
+
+.business-setup-card--store .business-setup-title {
+  font-family: inherit;
+  font-size: 30px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.business-setup-card--store .business-setup-input {
+  height: 38px;
+  padding: 0 0 var(--space-1);
+  border-width: 0 0 1px;
+  border-radius: 0;
+  background: transparent;
+}
+
+.business-setup-card--store .business-setup-input:focus {
+  border-bottom-color: var(--color-accent);
+  box-shadow: 0 2px 0 var(--color-accent);
+}
+
+.business-setup-card--store .business-setup-input[aria-invalid='true'] {
+  border-bottom-color: var(--color-danger);
+}
+
+.business-setup-card--store .business-setup-form {
+  gap: var(--space-5);
+}
+
+@media (max-width: 640px) {
+  .business-setup-card--store {
+    padding: 64px var(--space-6) var(--space-8);
+  }
+
+  .business-setup-card--store::before {
+    inset: 0 0 auto;
+    width: auto;
+    height: 32px;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+    background:
+      repeating-linear-gradient(
+        to right,
+        transparent 0 11px,
+        var(--color-border) 11px 12px
+      ),
+      var(--color-accent-soft);
+    background-position: left center;
+    background-repeat: repeat-x;
+  }
+
+  .business-setup-card--store::after {
+    top: 13px;
+    left: var(--space-6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .business-setup-card--store .business-setup-input {
+    transition: none;
   }
 }
