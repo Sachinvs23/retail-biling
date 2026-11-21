@@ -11,6 +11,7 @@ import { CommonModule } from './common/common.module.js';
 import { InventoryModule } from './inventory/inventory.module.js';
 import { SuppliersModule } from './suppliers/suppliers.module.js';
 import { PurchasesModule } from './purchases/purchases.module.js';
+import { StoresModule } from './stores/stores.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -28,6 +29,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     InventoryModule,
     SuppliersModule,
     PurchasesModule,
+    StoresModule,
     ObserveModule.forRoot({
       appKey: process.env.OBSERVE_APP_KEY ?? 'YOUR_APP_KEY',
       appSecret: process.env.OBSERVE_APP_SECRET ?? 'YOUR_APP_SECRET',
