@@ -5,6 +5,7 @@ import { RegisterDto } from './auth/dto/register.dto.js';
 import { CreateBusinessDto } from './businesses/dto/create-business.dto.js';
 import { BusinessContextDto } from './common/dto/business-context.dto.js';
 import { CreateProductDto } from './products/dto/create-product.dto.js';
+import { CreateStoreDto } from './stores/dto/create-store.dto.js';
 import { ListInventoryDto } from './inventory/dto/list-inventory.dto.js';
 import { ListProductsDto } from './products/dto/list-products.dto.js';
 import { UpdateProductDto } from './products/dto/update-product.dto.js';
@@ -157,6 +158,28 @@ describe('request DTO validation', () => {
           businessName: 'Shop',
           slug: 'shop-1',
           storeName: 'Main',
+        }),
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('validates store name and optional store code', async () => {
+    const bad = await validate(
+      Object.assign(new CreateStoreDto(), {
+        storeName: ' x ',
+        storeCode: 'c'.repeat(31),
+      }),
+    );
+    expect(bad.map((error) => error.property)).toEqual(
+      expect.arrayContaining(['storeName', 'storeCode']),
+    );
+    expect(
+      await validate(Object.assign(new CreateStoreDto(), { storeName: '   ' })),
+    ).not.toHaveLength(0);
+    expect(
+      await validate(
+        Object.assign(new CreateStoreDto(), {
+          storeName: 'Tambaram Branch',
         }),
       ),
     ).toHaveLength(0);
