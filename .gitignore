@@ -1,4 +1,3 @@
-cat > .gitignore <<'EOF'
 # Environment variables and secrets
 .env
 .env.*
@@ -24,4 +23,3 @@ npm-debug.log*
 # Test and tooling caches
 .nest/
 .turbo/
-EOF
