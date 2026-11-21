@@ -1,21 +1,52 @@
-import { ConflictException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
+import { BusinessAccessService } from '../common/business-access.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { BusinessesService } from './businesses.service.js';
 
+const expectedTenantSelect = {
+  id: true,
+  name: true,
+  slug: true,
+  status: true,
+  createdAt: true,
+  stores: {
+    select: {
+      id: true,
+      name: true,
+      code: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: 'asc' },
+  },
+};
+
 describe('BusinessesService', () => {
-  const prisma = { $transaction: vi.fn() };
+  const prisma = {
+    $transaction: vi.fn(),
+    membership: { findMany: vi.fn() },
+    tenant: { findUnique: vi.fn() },
+    store: { create: vi.fn() },
+  };
   const tx = {
     tenant: { create: vi.fn() },
     membership: { create: vi.fn() },
     store: { create: vi.fn() },
   };
+  const businessAccess = { getActiveMembership: vi.fn() };
   const now = new Date('2025-01-01T00:00:00.000Z');
   let service: BusinessesService;
 
   beforeEach(() => {
     vi.resetAllMocks();
-    service = new BusinessesService(prisma as unknown as PrismaService);
+    service = new BusinessesService(
+      prisma as unknown as PrismaService,
+      businessAccess as unknown as BusinessAccessService,
+    );
     prisma.$transaction.mockImplementation(
       async (callback: (transaction: typeof tx) => Promise<unknown>) =>
         callback(tx),
@@ -101,5 +132,147 @@ describe('BusinessesService', () => {
         storeName: 'Main',
       }),
     ).rejects.toBe(failure);
+  });
+
+  it('lists only active tenant memberships with consistent response shapes', async () => {
+    prisma.membership.findMany.mockResolvedValue([
+      {
+        role: 'OWNER',
+        tenant: {
+          id: 'tenant-1',
+          name: 'Shop',
+          slug: 'shop',
+          status: 'ACTIVE',
+          createdAt: now,
+          stores: [
+            { id: 'store-1', name: 'Main', code: 'MAIN', createdAt: now },
+          ],
+        },
+      },
+      {
+        role: 'CASHIER',
+        tenant: {
+          id: 'tenant-2',
+          name: 'Second Shop',
+          slug: 'second-shop',
+          status: 'ACTIVE',
+          createdAt: now,
+          stores: [],
+        },
+      },
+    ]);
+
+    const result = await service.list('user-1');
+
+    expect(prisma.membership.findMany).toHaveBeenCalledWith({
+      where: {
+        userId: 'user-1',
+        tenant: { status: 'ACTIVE' },
+      },
+      select: {
+        role: true,
+        tenant: { select: expectedTenantSelect },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    expect(result).toEqual({
+      businesses: [
+        {
+          business: {
+            id: 'tenant-1',
+            name: 'Shop',
+            slug: 'shop',
+            status: 'ACTIVE',
+            createdAt: now,
+          },
+          membership: { role: 'OWNER' },
+          stores: [
+            { id: 'store-1', name: 'Main', code: 'MAIN', createdAt: now },
+          ],
+        },
+        {
+          business: {
+            id: 'tenant-2',
+            name: 'Second Shop',
+            slug: 'second-shop',
+            status: 'ACTIVE',
+            createdAt: now,
+          },
+          membership: { role: 'CASHIER' },
+          stores: [],
+        },
+      ],
+    });
+    expect(JSON.stringify(result)).not.toContain('user-1');
+    expect(JSON.stringify(result)).not.toContain('passwordHash');
+  });
+
+  it('returns validated business context with stores', async () => {
+    businessAccess.getActiveMembership.mockResolvedValue({
+      tenantId: 'tenant-1',
+      role: 'MANAGER',
+    });
+    prisma.tenant.findUnique.mockResolvedValue({
+      id: 'tenant-1',
+      name: 'Shop',
+      slug: 'shop',
+      status: 'ACTIVE',
+      createdAt: now,
+      stores: [
+        { id: 'store-1', name: 'Main', code: 'MAIN', createdAt: now },
+        { id: 'store-2', name: 'Branch', code: null, createdAt: now },
+      ],
+    });
+
+    const result = await service.getContext('user-1', 'tenant-1');
+
+    expect(businessAccess.getActiveMembership).toHaveBeenCalledWith(
+      'user-1',
+      'tenant-1',
+    );
+    expect(prisma.tenant.findUnique).toHaveBeenCalledWith({
+      where: { id: 'tenant-1' },
+      select: expectedTenantSelect,
+    });
+    expect(result).toEqual({
+      business: {
+        id: 'tenant-1',
+        name: 'Shop',
+        slug: 'shop',
+        status: 'ACTIVE',
+        createdAt: now,
+      },
+      membership: { role: 'MANAGER' },
+      stores: [
+        { id: 'store-1', name: 'Main', code: 'MAIN', createdAt: now },
+        { id: 'store-2', name: 'Branch', code: null, createdAt: now },
+      ],
+    });
+    expect(JSON.stringify(result)).not.toContain('passwordHash');
+  });
+
+  it('delegates missing business IDs to the authorization service', async () => {
+    const error = new ForbiddenException('X-Business-Id header is required');
+    businessAccess.getActiveMembership.mockRejectedValue(error);
+
+    await expect(service.getContext('user-1')).rejects.toBe(error);
+
+    expect(businessAccess.getActiveMembership).toHaveBeenCalledWith(
+      'user-1',
+      '',
+    );
+    expect(prisma.tenant.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('rejects context lookup when the validated tenant cannot be loaded', async () => {
+    businessAccess.getActiveMembership.mockResolvedValue({
+      tenantId: 'tenant-1',
+      role: 'OWNER',
+    });
+    prisma.tenant.findUnique.mockResolvedValue(null);
+
+    await expect(
+      service.getContext('user-1', 'tenant-1'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });
